@@ -27,7 +27,7 @@ proc2page
 {
     sem_t sem;
     sem_t sem2;
-    sem_t sem3;
+    sem_t sem3[1024];
     int noOfProcesses;
     int maxNoOfPages;
     int maxFreeFrames;
@@ -91,7 +91,17 @@ main(int argc, char *argv[])
 
         // Send signal to process to continue
         // kill(pid, SIGCONT);
-        if (sem_post(&proc2pageList->sem3) == -1)
+        int idx = -1;
+        for (int i = 0; i < proc2pageList->noOfProcesses; i++)
+        {
+            if (proc2pageList->pid[i] == pid)
+            {
+                idx = i;
+                break;
+            }
+        }
+
+        if (sem_post(&proc2pageList->sem3[idx]) == -1)
         {
             perror("sched: sem_post");
             exit(1);

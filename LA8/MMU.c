@@ -43,7 +43,7 @@ proc2page
 {
     sem_t sem;
     sem_t sem2;
-    sem_t sem3;
+    sem_t sem3[1024];
     int noOfProcesses;
     int maxNoOfPages;
     int maxFreeFrames;

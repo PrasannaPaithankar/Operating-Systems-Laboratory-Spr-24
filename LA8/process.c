@@ -27,7 +27,7 @@ proc2page
 {
     sem_t sem;
     sem_t sem2;
-    sem_t sem3;
+    sem_t sem3[1024];
     int noOfProcesses;
     int maxNoOfPages;
     int maxFreeFrames;
@@ -99,7 +99,18 @@ main(int argc, char *argv[])
 
     // Wait for scheduler to schedule the process
     // pause();
-    if (sem_wait(&sm3->sem3) == -1)
+
+    int idx = -1;
+    for (int i = 0; i < sm3->noOfProcesses; i++)
+    {
+        if (sm3->pid[i] == pid)
+        {
+            idx = i;
+            break;
+        }
+    }
+
+    if (sem_wait(&sm3->sem3[idx]) == -1)
     {
         perror("process: sem_wait");
         exit(1);
@@ -155,7 +166,7 @@ main(int argc, char *argv[])
             }
             
             // pause();
-            if (sem_wait(&sm3->sem3) == -1)
+            if (sem_wait(&sm3->sem3[idx]) == -1)
             {
                 perror("process: sem_wait");
                 exit(1);

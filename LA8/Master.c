@@ -22,6 +22,8 @@
 #include <signal.h>
 #include <semaphore.h>
 
+#define PROB 5
+
 struct
 pageTable
 {
@@ -41,7 +43,7 @@ proc2page
 {
     sem_t sem;
     sem_t sem2;
-    sem_t sem3;
+    sem_t sem3[1024];
     int noOfProcesses;
     int maxNoOfPages;
     int maxFreeFrames;
@@ -180,17 +182,23 @@ main (int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    if (sem_init(&SM3->sem3, 1, 0) == -1)
+    for (int i = 0; i < k; i++)
     {
-        perror("Master: sem_init");
-        exit(EXIT_FAILURE);
+        if (sem_init(&SM3->sem3[i], 1, 0) == -1)
+        {
+            perror("Master: sem_init");
+            exit(EXIT_FAILURE);
+        }
+
+        SM3->pid[i] = -1;
+        SM3->noOfPages[i] = 0;
     }
     
     // Create message queues
     mqd_t MQ1, MQ2, MQ3;
     struct mq_attr attr;
     attr.mq_flags = 0;
-    attr.mq_maxmsg = 10;
+    attr.mq_maxmsg = 100;
     attr.mq_msgsize = 100;
     attr.mq_curmsgs = 0;
 
@@ -278,7 +286,7 @@ main (int argc, char *argv[])
             // with probability PROB, corrupt the reference string, by putting illegal page number
             for (int j = 0; j < refStringLength; j++)
             {
-                if (rand() % 100 < 5)
+                if (rand() % 100 < PROB)
                 {
                     refString[j] = rand() % m;
                 }
