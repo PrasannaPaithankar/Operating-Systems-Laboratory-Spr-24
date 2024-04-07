@@ -63,10 +63,6 @@ main(int argc, char *argv[])
         perror("MMU: fopen");
         exit(1);
     }
-    fprintf(fp, "Page fault sequence\tInvalid page reference\tGlobal ordering\n");
-    fprintf(fp, "------------------------------------------------------------\n");
-    printf("Page fault sequence\tInvalid page reference\tGlobal ordering\n");
-    printf("------------------------------------------------------------\n");
 
     mqd_t MQ2, MQ3;
 
@@ -132,6 +128,15 @@ main(int argc, char *argv[])
         exit(1);
     }
 
+    fprintf(fp, "No of processes: %d\n", k);
+    fprintf(fp, "Max no of pages: %d\n", m);
+    fprintf(fp, "Max free frames: %d\n\n", f);
+
+    fprintf(fp, "Page fault sequence\tInvalid page reference\tGlobal ordering\n");
+    fprintf(fp, "------------------------------------------------------------\n");
+    printf("Page fault sequence\tInvalid page reference\tGlobal ordering\n");
+    printf("------------------------------------------------------------\n");
+
     pid_t pid = -1;
     int noOfTerminatedProcesses = 0;
 
@@ -185,17 +190,6 @@ main(int argc, char *argv[])
                 }
             }
 
-            if (++noOfTerminatedProcesses == k)
-            {
-                if (mq_send(MQ2, "END", strlen("END"), 0) == -1)
-                {
-                    perror("MMU: mq_send");
-                    exit(1);
-                }
-
-                break;
-            }
-
             // Send message to scheduler
             if (mq_send(MQ2, "TERMINATED", strlen("TERMINATED"), 0) == -1)
             {
@@ -203,6 +197,10 @@ main(int argc, char *argv[])
                 exit(1);
             }
 
+            if (++noOfTerminatedProcesses == k)
+            {
+                break;
+            }
             continue;
         }
 
@@ -236,9 +234,9 @@ main(int argc, char *argv[])
             continue;
         }
 
-        fprintf(fp, "\t\t\t\t\t\t( %d, %d )\n", idx, page);
+        fprintf(fp, "\t\t\t\t\t\t( %d, %d, %d )\n", globaltime, idx, page);
         fflush(fp);
-        printf("\t\t\t\t\t\t( %d, %d )\n", idx, page);
+        printf("\t\t\t\t\t\t( %d, %d, %d )\n", globaltime, idx, page);
 
         // If page is already in memory, send frame to process
         if (pageTable[(idx * m) + page].valid == 1)
@@ -287,6 +285,7 @@ main(int argc, char *argv[])
             exit(1);
         }
     }
+    fprintf(fp, "------------------------------------------------------------\n");
     printf("------------------------------------------------------------\n");
 
     // Garbage collection

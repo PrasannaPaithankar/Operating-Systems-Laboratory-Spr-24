@@ -72,26 +72,6 @@ main(int argc, char *argv[])
 
     while (1)
     {
-        struct mq_attr attr;
-        mq_getattr(MQ2, &attr);
-        if (attr.mq_curmsgs != 0)
-        {
-            char message[100];
-            memset(message, 0, 100);
-
-            // Receive message from MMU
-            if (mq_receive(MQ2, message, 100, NULL) == -1)
-            {
-                perror("sched: mq_receive");
-                exit(1);
-            }
-            
-            if (strncmp(message, "END", strlen("END")) == 0)
-            {
-                break;
-            }
-        }
-
         pid_t pid;
         char message[100];
         memset(message, 0, 100);
@@ -104,6 +84,10 @@ main(int argc, char *argv[])
         }
         
         pid = atoi(message);
+        if (pid == getppid())
+        {
+            break;
+        }
 
         // Send signal to process to continue
         // kill(pid, SIGCONT);
@@ -134,12 +118,6 @@ main(int argc, char *argv[])
 
             else if (strncmp(message, "TERMINATED", strlen("TERMINATED")) == 0)
             {
-                break;
-            }
-
-            else if (strncmp(message, "END", strlen("END")) == 0)
-            {
-                flag = 1;
                 break;
             }
         }

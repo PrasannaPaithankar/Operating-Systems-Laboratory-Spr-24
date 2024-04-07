@@ -306,9 +306,19 @@ main (int argc, char *argv[])
     }
 
     // Wait for sched to finish
-    if (waitpid(schedPID, NULL, 0) == -1)
+    if (waitpid(MMUPID, NULL, 0) == -1)
     {
         perror("Master: waitpid");
+        exit(EXIT_FAILURE);
+    }
+
+    // Send PID in ready queue
+    char pid[10];
+    memset(pid, 0, 10);
+    sprintf(pid, "%d", schedPID);
+    if (mq_send(MQ1, pid, strlen(pid), 0) == -1)
+    {
+        perror("Master: mq_send");
         exit(EXIT_FAILURE);
     }
 
