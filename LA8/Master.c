@@ -44,11 +44,13 @@ proc2page
     sem_t sem;
     sem_t sem2;
     sem_t sem3[1024];
+    sem_t sem4;
     int noOfProcesses;
     int maxNoOfPages;
     int maxFreeFrames;
     pid_t pid[1024];
     int noOfPages[1024];
+    int noOfFaults[1024];
 };
 
 
@@ -83,6 +85,17 @@ main (int argc, char *argv[])
                 exit(EXIT_FAILURE);
         }
     }
+
+    FILE *fp = fopen("/proc/sys/fs/mqueue/msg_max", "r");
+    if (fp == NULL)
+    {
+        perror("Master: fopen");
+        exit(EXIT_FAILURE);
+    }
+
+    int maxmsg;
+    fscanf(fp, "%d", &maxmsg);
+    fclose(fp);
 
     // Create shared memory Page Table
     int shmidpageTable = shm_open("SM1", O_CREAT | O_RDWR, 0666);
@@ -192,13 +205,20 @@ main (int argc, char *argv[])
 
         SM3->pid[i] = -1;
         SM3->noOfPages[i] = 0;
+        SM3->noOfFaults[i] = 0;
+    }
+
+    if (sem_init(&SM3->sem4, 1, 0) == -1)
+    {
+        perror("Master: sem_init");
+        exit(EXIT_FAILURE);
     }
     
     // Create message queues
     mqd_t MQ1, MQ2, MQ3;
     struct mq_attr attr;
     attr.mq_flags = 0;
-    attr.mq_maxmsg = 100;
+    attr.mq_maxmsg = maxmsg;
     attr.mq_msgsize = 100;
     attr.mq_curmsgs = 0;
 
@@ -252,8 +272,6 @@ main (int argc, char *argv[])
     else if (MMUPID == 0)
     {
         // Execute ./MMU /mq2 /mq3 SM1 SM2 in an xterm
-        // char *args[] = {"./MMU", "/mq2", "/mq3", "SM1", "SM2", NULL};
-        // execv(args[0], args);
         execlp("xterm", "xterm", "-e", "./MMU", "/mq2", "/mq3", "SM1", "SM2", NULL);
         perror("Master: execv");
         exit(EXIT_FAILURE);
@@ -265,7 +283,6 @@ main (int argc, char *argv[])
     for (int i = 0; i < k; i++)
     {
         SM3->noOfPages[curridx] = rand() % m + 1;   // Number of pages for the current process
-        // SM3->noOfPages[curridx] = 6;
         pid_t pid = fork();
 
         if (pid == -1)
@@ -302,7 +319,6 @@ main (int argc, char *argv[])
 
             // Execute ./process refString /mq1 /mq3
             char *args[] = {"./process", refStringChar, "/mq1", "/mq3", NULL};
-            // char *args[] = {"./process", "0,1,2,3,4", "/mq1", "/mq3", NULL};
             execv(args[0], args);
             perror("Master: execv");
             exit(EXIT_FAILURE);
@@ -310,7 +326,7 @@ main (int argc, char *argv[])
         SM3->pid[curridx] = pid;
         curridx++;
 
-        usleep(250000);
+        // usleep(250000);
     }
 
     // Wait for sched to finish
@@ -378,8 +394,6 @@ main (int argc, char *argv[])
         perror("Master: shm_unlink");
         exit(EXIT_FAILURE);
     }
-
-    kill(MMUPID, SIGINT);
 
     return 0;
 }

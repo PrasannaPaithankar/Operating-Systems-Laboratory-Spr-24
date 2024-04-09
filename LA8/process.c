@@ -28,27 +28,19 @@ proc2page
     sem_t sem;
     sem_t sem2;
     sem_t sem3[1024];
+    sem_t sem4;
     int noOfProcesses;
     int maxNoOfPages;
     int maxFreeFrames;
     pid_t pid[1024];
     int noOfPages[1024];
+    int noOfFaults[1024];
 };
 
-void
-sigHandler(int sig)
-{
-    if (sig == SIGCONT)
-    {
-        // printf("Process %d resumed\n", getpid());
-    }
-}
 
 int
 main(int argc, char *argv[])
 {
-    signal(SIGCONT, sigHandler);    // Register signal handler
-
     char *refString = argv[1];
     mqd_t MQ1, MQ3;
 
@@ -94,12 +86,12 @@ main(int argc, char *argv[])
         exit(1);
     }
 
-    printf("Process %d added to ready queue with reference string %s\n", pid, refString);
-    fflush(stdout);
+    #ifdef VERBOSE
+        printf("Process %d added to ready queue with reference string %s\n", pid, refString);
+        fflush(stdout);
+    #endif
 
     // Wait for scheduler to schedule the process
-    // pause();
-
     int idx = -1;
     for (int i = 0; i < sm3->noOfProcesses; i++)
     {
@@ -116,7 +108,6 @@ main(int argc, char *argv[])
         exit(1);
     }
 
-
     char *token = strtok(refString, ",");
     while (token != NULL)
     {
@@ -132,13 +123,7 @@ main(int argc, char *argv[])
             exit(1);
         }
 
-        if (sem_post(&sm3->sem) == -1)
-        {
-            perror("process: sem_post");
-            exit(1);
-        }
-
-        if (sem_wait(&sm3->sem2) == -1)
+        if (sem_post(&sm3->sem2) == -1)
         {
             perror("process: sem_post");
             exit(1);
@@ -147,6 +132,12 @@ main(int argc, char *argv[])
         int frame;
         memset(msg, 0, 100);
 
+        if (sem_wait(&sm3->sem) == -1)
+        {
+            perror("process: sem_wait");
+            exit(1);
+        }
+
         // Receive frame from MMU
         if (mq_receive(MQ3, msg, 100, 0) == -1)
         {
@@ -154,7 +145,16 @@ main(int argc, char *argv[])
             exit(1);
         }
         frame = atoi(msg);
-        printf("%d: %d->%d\n", pid, page, frame);
+
+        if (sem_post(&sm3->sem4) == -1)
+        {
+            perror("process: sem_post");
+            exit(1);
+        }
+
+        #ifdef VERBOSE
+            printf("%d: %d->%d\n", pid, page, frame);
+        #endif
 
         while (frame == -1)   // Page fault
         {
@@ -165,7 +165,6 @@ main(int argc, char *argv[])
                 exit(1);
             }
             
-            // pause();
             if (sem_wait(&sm3->sem3[idx]) == -1)
             {
                 perror("process: sem_wait");
@@ -178,15 +177,15 @@ main(int argc, char *argv[])
                 exit(1);
             }
 
-            if (sem_post(&sm3->sem) == -1)
+            if (sem_post(&sm3->sem2) == -1)
             {
                 perror("process: sem_post");
                 exit(1);
             }
 
-            if (sem_wait(&sm3->sem2) == -1)
+            if (sem_wait(&sm3->sem) == -1)
             {
-                perror("process: sem_post");
+                perror("process: sem_wait");
                 exit(1);
             }
 
@@ -196,18 +195,40 @@ main(int argc, char *argv[])
                 perror("process: mq_receive");
                 exit(1);
             }
-
             frame = atoi(msg);
-            printf("%d: %d->%d\n", pid, page, frame);
+
+            if (sem_post(&sm3->sem4) == -1)
+            {
+                perror("process: sem_post");
+                exit(1);
+            }
+
+            #ifdef VERBOSE
+                printf("%d: %d->%d\n", pid, page, frame);
+            #endif
         }
         
         if (frame == -2)    // Process terminated due to invalid page reference
         {
+            // Enqueue the ready queue
+            if (mq_send(MQ1, message, strlen(message), 0) == -1)
+            {
+                perror("process: mq_send");
+                exit(1);
+            }
+            
+            if (sem_wait(&sm3->sem3[idx]) == -1)
+            {
+                perror("process: sem_wait");
+                exit(1);
+            }
+
             break;
         }
 
         token = strtok(NULL, ",");
     }
+
 
     sprintf(message, "%d:-9", pid); // Terminate process
     if (mq_send(MQ3, message, strlen(message), 0) == -1)
@@ -216,7 +237,7 @@ main(int argc, char *argv[])
         exit(1);
     }
 
-    if (sem_post(&sm3->sem) == -1)
+    if (sem_post(&sm3->sem2) == -1)
     {
         perror("process: sem_post");
         exit(1);

@@ -2,4 +2,6 @@ Master
 MMU
 sched
 process
+result.txt
 *.tar.gz
+*.zip

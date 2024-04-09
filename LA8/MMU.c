@@ -44,15 +44,18 @@ proc2page
     sem_t sem;
     sem_t sem2;
     sem_t sem3[1024];
+    sem_t sem4;
     int noOfProcesses;
     int maxNoOfPages;
     int maxFreeFrames;
     pid_t pid[1024];
     int noOfPages[1024];
+    int noOfFaults[1024];
 };
 
 int
 pageFaultHandler(int page, int idx, struct proc2page *proc2pageList, struct freeFrameList *freeFrameList, struct pageTable *pageTable);
+
 
 int
 main(int argc, char *argv[])
@@ -143,7 +146,7 @@ main(int argc, char *argv[])
     while (1)
     {
         // Wait for process to send message
-        if (sem_wait(&proc2pageList->sem) == -1)
+        if (sem_wait(&proc2pageList->sem2) == -1)
         {
             perror("MMU: sem_wait");
             exit(1);
@@ -158,6 +161,7 @@ main(int argc, char *argv[])
             exit(1);
         }
         sscanf(buf, "%d:%d", &pid, &page);  // Extract pid and page from message
+        printf("buf: %s\n", buf);
 
         // Find index of process in proc2pageList
         int idx = 0, i;
@@ -201,6 +205,7 @@ main(int argc, char *argv[])
             {
                 break;
             }
+
             continue;
         }
 
@@ -208,7 +213,6 @@ main(int argc, char *argv[])
         if (page >= proc2pageList->noOfPages[idx])
         {
             printf("TRYING TO ACCESS INVALID PAGE REFERENCE\n");
-            printf("%d %d\n", page, proc2pageList->noOfPages[idx]);
             fprintf(fp, "\t\t\t( %d, %d )\n", idx, page);
             fflush(fp);
             printf("\t\t\t( %d, %d )\n", idx, page);
@@ -225,9 +229,15 @@ main(int argc, char *argv[])
                 exit(1);
             }
 
-            if (sem_post(&proc2pageList->sem2) == -1)
+            if (sem_post(&proc2pageList->sem) == -1)
             {
                 perror("MMU: sem_post");
+                exit(1);
+            }
+
+            if (sem_wait(&proc2pageList->sem4) == -1)
+            {
+                perror("MMU: sem_wait");
                 exit(1);
             }
 
@@ -252,9 +262,15 @@ main(int argc, char *argv[])
                 exit(1);
             }
 
-            if (sem_post(&proc2pageList->sem2) == -1)
+            if (sem_post(&proc2pageList->sem) == -1)
             {
                 perror("MMU: sem_post");
+                exit(1);
+            }
+
+            if (sem_wait(&proc2pageList->sem4) == -1)
+            {
+                perror("MMU: sem_wait");
                 exit(1);
             }
 
@@ -266,6 +282,8 @@ main(int argc, char *argv[])
         fprintf(fp, "( %d, %d )\n", idx, page);
         fflush(fp);
         printf("( %d, %d )\n", idx, page);
+
+        proc2pageList->noOfFaults[idx]++;
 
         if (mq_send(MQ3, "-1", strlen("-1"), 0) == -1)
         {
@@ -279,14 +297,28 @@ main(int argc, char *argv[])
             exit(1);
         }
 
-        if (sem_post(&proc2pageList->sem2) == -1)
+        if (sem_post(&proc2pageList->sem) == -1)
         {
             perror("MMU: sem_post");
+            exit(1);
+        }
+
+        if (sem_wait(&proc2pageList->sem4) == -1)
+        {
+            perror("MMU: sem_wait");
             exit(1);
         }
     }
     fprintf(fp, "------------------------------------------------------------\n");
     printf("------------------------------------------------------------\n");
+
+    fprintf(fp, "\nNo of page faults per process\n");
+    fprintf(fp, "--------------------------------\n");
+    for (int i = 0; i < k; i++)
+    {
+        fprintf(fp, "Process %d: No of page faults: %d\n", i, proc2pageList->noOfFaults[i]);
+        printf("Process %d: No of page faults: %d\n", i, proc2pageList->noOfFaults[i]);
+    }
 
     // Garbage collection
     fclose(fp);
@@ -363,6 +395,11 @@ pageFaultHandler(int page, int idx, struct proc2page *proc2pageList, struct free
                 min = pageTable[(idx * m) + i].timestamp;
                 minidx = i;
             }
+        }
+
+        if (minidx == -1)
+        {
+            return -1;
         }
 
         frame = pageTable[(idx * m) + minidx].frame;

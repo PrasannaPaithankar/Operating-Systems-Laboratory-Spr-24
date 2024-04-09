@@ -28,12 +28,15 @@ proc2page
     sem_t sem;
     sem_t sem2;
     sem_t sem3[1024];
+    sem_t sem4;
     int noOfProcesses;
     int maxNoOfPages;
     int maxFreeFrames;
     pid_t pid[1024];
     int noOfPages[1024];
+    int noOfFaults[1024];
 };
+
 
 int
 main(int argc, char *argv[])
@@ -90,7 +93,6 @@ main(int argc, char *argv[])
         }
 
         // Send signal to process to continue
-        // kill(pid, SIGCONT);
         int idx = -1;
         for (int i = 0; i < proc2pageList->noOfProcesses; i++)
         {

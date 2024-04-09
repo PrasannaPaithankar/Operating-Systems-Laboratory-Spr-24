@@ -6,6 +6,7 @@
 
 CC = gcc
 CFLAGS = -Wall -Wextra -g -pedantic
+DFLAGS = -DVERBOSE
 
 BINARIES = Master MMU sched process
 
@@ -14,14 +15,14 @@ BINARIES = Master MMU sched process
 all: $(BINARIES)
 
 $(BINARIES): %: %.c
-	$(CC) $(CFLAGS) $< -o $@
+	$(CC) $(CFLAGS) $< -o $@ -lrt $(DFLAGS)
 
 tar:
-	tar -czvf 21CS30065_Assignment8.tar.gz Makefile Master.c MMU.c sched.c process.c result.txt
+	tar -czvf 21CS30065_LA8.tar.gz Makefile Master.c MMU.c sched.c process.c result.txt
 
 run: all
 	./Master -k 9 -m 5 -f 3
 	
 clean:
-	rm -rf $(BINARIES) 21CS30065_Assignment5.tar.gz
+	rm -rf $(BINARIES) 21CS30065_LA8.tar.gz
 	-rm /dev/mqueue/mq* /dev/shm/SM*
