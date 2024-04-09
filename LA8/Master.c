@@ -45,6 +45,7 @@ proc2page
     sem_t sem2;
     sem_t sem3[1024];
     sem_t sem4;
+    sem_t sem5;
     int noOfProcesses;
     int maxNoOfPages;
     int maxFreeFrames;
@@ -86,6 +87,7 @@ main (int argc, char *argv[])
         }
     }
 
+    // Get the mqueue system limit
     FILE *fp = fopen("/proc/sys/fs/mqueue/msg_max", "r");
     if (fp == NULL)
     {
@@ -213,6 +215,12 @@ main (int argc, char *argv[])
         perror("Master: sem_init");
         exit(EXIT_FAILURE);
     }
+
+    if (sem_init(&SM3->sem5, 1, 1) == -1)
+    {
+        perror("Master: sem_init");
+        exit(EXIT_FAILURE);
+    }
     
     // Create message queues
     mqd_t MQ1, MQ2, MQ3;
@@ -273,7 +281,7 @@ main (int argc, char *argv[])
     {
         // Execute ./MMU /mq2 /mq3 SM1 SM2 in an xterm
         execlp("xterm", "xterm", "-e", "./MMU", "/mq2", "/mq3", "SM1", "SM2", NULL);
-        perror("Master: execv");
+        perror("Master: execlp");
         exit(EXIT_FAILURE);
     }
 
@@ -326,7 +334,7 @@ main (int argc, char *argv[])
         SM3->pid[curridx] = pid;
         curridx++;
 
-        // usleep(250000);
+        usleep(250000);
     }
 
     // Wait for sched to finish

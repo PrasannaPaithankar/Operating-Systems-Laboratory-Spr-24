@@ -29,6 +29,7 @@ proc2page
     sem_t sem2;
     sem_t sem3[1024];
     sem_t sem4;
+    sem_t sem5;
     int noOfProcesses;
     int maxNoOfPages;
     int maxFreeFrames;
@@ -116,6 +117,12 @@ main(int argc, char *argv[])
         memset(pagemsg, 0, 100);
         sprintf(pagemsg, "%d:%d", pid, page);
 
+        if (sem_wait(&sm3->sem5) == -1)
+        {
+            perror("process: sem_wait");
+            exit(1);
+        }
+
         // Send page request to MMU
         if (mq_send(MQ3, pagemsg, strlen(pagemsg), 0) == -1)
         {
@@ -152,6 +159,12 @@ main(int argc, char *argv[])
             exit(1);
         }
 
+        if (sem_post(&sm3->sem5) == -1)
+        {
+            perror("process: sem_post");
+            exit(1);
+        }
+
         #ifdef VERBOSE
             printf("%d: %d->%d\n", pid, page, frame);
         #endif
@@ -166,6 +179,12 @@ main(int argc, char *argv[])
             }
             
             if (sem_wait(&sm3->sem3[idx]) == -1)
+            {
+                perror("process: sem_wait");
+                exit(1);
+            }
+
+            if (sem_wait(&sm3->sem5) == -1)
             {
                 perror("process: sem_wait");
                 exit(1);
@@ -203,6 +222,12 @@ main(int argc, char *argv[])
                 exit(1);
             }
 
+            if (sem_post(&sm3->sem5) == -1)
+            {
+                perror("process: sem_post");
+                exit(1);
+            }
+
             #ifdef VERBOSE
                 printf("%d: %d->%d\n", pid, page, frame);
             #endif
@@ -229,6 +254,11 @@ main(int argc, char *argv[])
         token = strtok(NULL, ",");
     }
 
+    if (sem_wait(&sm3->sem5) == -1)
+    {
+        perror("process: sem_wait");
+        exit(1);
+    }
 
     sprintf(message, "%d:-9", pid); // Terminate process
     if (mq_send(MQ3, message, strlen(message), 0) == -1)
@@ -240,6 +270,12 @@ main(int argc, char *argv[])
     if (sem_post(&sm3->sem2) == -1)
     {
         perror("process: sem_post");
+        exit(1);
+    }
+
+    if (sem_post(&sm3->sem5) == -1)
+    {
+        perror("process: sem_wait");
         exit(1);
     }
 

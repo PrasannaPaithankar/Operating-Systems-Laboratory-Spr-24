@@ -45,6 +45,7 @@ proc2page
     sem_t sem2;
     sem_t sem3[1024];
     sem_t sem4;
+    sem_t sem5;
     int noOfProcesses;
     int maxNoOfPages;
     int maxFreeFrames;
@@ -161,7 +162,6 @@ main(int argc, char *argv[])
             exit(1);
         }
         sscanf(buf, "%d:%d", &pid, &page);  // Extract pid and page from message
-        printf("buf: %s\n", buf);
 
         // Find index of process in proc2pageList
         int idx = 0, i;
